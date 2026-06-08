@@ -42,6 +42,7 @@ def iso(dt: datetime) -> str:
 class UserOut(BaseModel):
     id: str
     email: str
+    username: Optional[str] = None
     name: str
     role: str
 
@@ -50,10 +51,11 @@ class RegisterIn(BaseModel):
     email: EmailStr
     password: str
     name: str = "Gebruiker"
+    username: Optional[str] = None
 
 
 class LoginIn(BaseModel):
-    email: EmailStr
+    identifier: str  # email OR username
     password: str
 
 
@@ -74,6 +76,8 @@ class InventoryItemIn(BaseModel):
     loose_units: int = 0
     trays_in_storage: int = 0
     units_per_tray: int = 0
+    alarm_enabled: bool = True
+    alarm_threshold: int = 6
 
 
 class InventoryItemOut(InventoryItemIn):
@@ -143,6 +147,7 @@ class UserCreateIn(BaseModel):
     email: EmailStr
     password: str
     name: str
+    username: Optional[str] = None
     role: str = "werknemer"  # admin | manager | werknemer
 
 
@@ -150,6 +155,7 @@ class UserUpdateIn(BaseModel):
     name: Optional[str] = None
     role: Optional[str] = None
     password: Optional[str] = None
+    username: Optional[str] = None
 
 
 class PromotionIn(BaseModel):
@@ -202,6 +208,7 @@ async def get_current_user(request: Request) -> dict:
         return {
             "id": str(user["_id"]),
             "email": user["email"],
+            "username": user.get("username"),
             "name": user.get("name", ""),
             "role": user.get("role", "user"),
         }
@@ -329,8 +336,12 @@ async def register(payload: RegisterIn, response: Response):
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="E-mail al in gebruik")
+    username = (payload.username or "").strip().lower() or None
+    if username and await db.users.find_one({"username": username}):
+        raise HTTPException(status_code=400, detail="Gebruikersnaam al in gebruik")
     doc = {
         "email": email,
+        "username": username,
         "password_hash": hash_password(payload.password),
         "name": payload.name,
         "role": "werknemer",
@@ -344,18 +355,18 @@ async def register(payload: RegisterIn, response: Response):
     )
     return {
         "token": token,
-        "user": {"id": uid, "email": email, "name": payload.name, "role": "werknemer"},
+        "user": {"id": uid, "email": email, "username": username, "name": payload.name, "role": "werknemer"},
     }
 
 
 @api.post("/auth/login")
 async def login(payload: LoginIn, response: Response):
-    email = payload.email.lower()
-    user = await db.users.find_one({"email": email})
+    ident = payload.identifier.strip().lower()
+    user = await db.users.find_one({"$or": [{"email": ident}, {"username": ident}]})
     if not user or not verify_password(payload.password, user["password_hash"]):
         raise HTTPException(status_code=401, detail="Ongeldige inloggegevens")
     uid = str(user["_id"])
-    token = create_access_token(uid, email)
+    token = create_access_token(uid, user["email"])
     response.set_cookie(
         "access_token", token, httponly=True, samesite="lax", max_age=43200, path="/"
     )
@@ -363,9 +374,10 @@ async def login(payload: LoginIn, response: Response):
         "token": token,
         "user": {
             "id": uid,
-            "email": email,
+            "email": user["email"],
+            "username": user.get("username"),
             "name": user.get("name", ""),
-            "role": user.get("role", "user"),
+            "role": user.get("role", "werknemer"),
         },
     }
 
@@ -446,6 +458,8 @@ def inv_doc_to_out(d: dict) -> dict:
         "loose_units": d.get("loose_units", 0),
         "trays_in_storage": d.get("trays_in_storage", 0),
         "units_per_tray": d.get("units_per_tray", 0),
+        "alarm_enabled": d.get("alarm_enabled", True),
+        "alarm_threshold": d.get("alarm_threshold", 6),
     }
 
 
@@ -745,6 +759,7 @@ def user_doc_to_out(d: dict) -> dict:
     return {
         "id": str(d["_id"]),
         "email": d["email"],
+        "username": d.get("username"),
         "name": d.get("name", ""),
         "role": d.get("role", "werknemer"),
     }
@@ -763,8 +778,12 @@ async def create_user(payload: UserCreateIn, _=Depends(require_admin)):
     email = payload.email.lower()
     if await db.users.find_one({"email": email}):
         raise HTTPException(status_code=400, detail="E-mail al in gebruik")
+    username = (payload.username or "").strip().lower() or None
+    if username and await db.users.find_one({"username": username}):
+        raise HTTPException(status_code=400, detail="Gebruikersnaam al in gebruik")
     res = await db.users.insert_one({
         "email": email,
+        "username": username,
         "password_hash": hash_password(payload.password),
         "name": payload.name,
         "role": payload.role,
@@ -783,6 +802,13 @@ async def update_user(user_id: str, payload: UserUpdateIn, _=Depends(require_adm
         if payload.role not in ROLE_LEVEL:
             raise HTTPException(status_code=400, detail="Ongeldige rol")
         upd["role"] = payload.role
+    if payload.username is not None:
+        new_username = payload.username.strip().lower() or None
+        if new_username:
+            ex = await db.users.find_one({"username": new_username, "_id": {"$ne": ObjectId(user_id)}})
+            if ex:
+                raise HTTPException(status_code=400, detail="Gebruikersnaam al in gebruik")
+        upd["username"] = new_username
     if payload.password:
         upd["password_hash"] = hash_password(payload.password)
     if not upd:
@@ -870,17 +896,21 @@ async def stats_today(_=Depends(get_current_user)):
             revenue += float(o.get("total") or 0)
         else:
             open_count += 1
-    # Low stock: total available < 6
+    # Low stock: respect per-item alarm_enabled + alarm_threshold (default true, default 6)
     low = []
     async for inv in db.inventory_items.find():
+        if not inv.get("alarm_enabled", True):
+            continue
+        threshold = inv.get("alarm_threshold", 6)
         total_av = (inv.get("loose_units", 0) +
                     inv.get("trays_in_storage", 0) * inv.get("units_per_tray", 0))
-        if total_av < 6:
+        if total_av < threshold:
             low.append({
                 "id": inv["_id"],
                 "name": inv["name"],
                 "category": inv["category"],
                 "total_available": total_av,
+                "alarm_threshold": threshold,
                 "loose_units": inv.get("loose_units", 0),
                 "trays_in_storage": inv.get("trays_in_storage", 0),
                 "units_per_tray": inv.get("units_per_tray", 0),

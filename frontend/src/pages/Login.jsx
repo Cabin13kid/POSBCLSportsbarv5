@@ -13,7 +13,7 @@ const LOGIN_BG =
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [email, setEmail] = useState("admin@bar.nl");
+  const [identifier, setIdentifier] = useState("admin@bar.nl");
   const [password, setPassword] = useState("admin123");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
@@ -23,7 +23,7 @@ export default function Login() {
     setBusy(true);
     setError("");
     try {
-      await login(email, password);
+      await login(identifier, password);
       nav("/", { replace: true });
     } catch (e) {
       setError(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -50,12 +50,11 @@ export default function Login() {
             <span className="text-slate-50 font-semibold tracking-wide">BARTRACK BCL</span>
           </div>
           <div className="max-w-md">
-            <h1 className="text-5xl xl:text-6xl text-slate-50 font-bold tracking-tight leading-[1.05]">
-              Bestellingen.<br />Voorraad.<br />
-              <span className="text-amber-500">Zonder gedoe.</span>
+            <h1 className="text-4xl xl:text-5xl text-slate-50 font-bold tracking-tight leading-[1.1]">
+              Sportsbar BCL <span className="text-amber-500">Lansingerland</span>
             </h1>
             <p className="mt-6 text-slate-300 text-base max-w-sm">
-              Tap een tafel, sleep menu items en houd je voorraad bij — inclusief trays en losse units.
+              Voor een gezellige borrel na het sporten of wat verfrissing tijdens het toernooi.
             </p>
           </div>
         </div>
@@ -74,13 +73,14 @@ export default function Login() {
 
           <div className="space-y-4">
             <div>
-              <Label htmlFor="email" className="text-slate-300">E-mail</Label>
+              <Label htmlFor="identifier" className="text-slate-300">Gebruikersnaam of e-mail</Label>
               <Input
-                id="email"
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                id="identifier"
+                type="text"
+                value={identifier}
+                onChange={(e) => setIdentifier(e.target.value)}
                 required
+                autoComplete="username"
                 className="mt-1.5 bg-slate-900 border-slate-800 text-slate-50 focus-visible:ring-amber-500"
                 data-testid="login-email-input"
               />
@@ -93,6 +93,7 @@ export default function Login() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
+                autoComplete="current-password"
                 className="mt-1.5 bg-slate-900 border-slate-800 text-slate-50 focus-visible:ring-amber-500"
                 data-testid="login-password-input"
               />
@@ -116,10 +117,6 @@ export default function Login() {
           >
             {busy ? "Bezig…" : "Inloggen"}
           </Button>
-
-          <p className="text-xs text-slate-500 text-center">
-            Standaard: admin@bar.nl / admin123
-          </p>
         </form>
       </div>
     </div>

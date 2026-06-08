@@ -41,7 +41,7 @@ const roleBadge = (r) => {
   );
 };
 
-const emptyForm = { email: "", name: "", role: "werknemer", password: "" };
+const emptyForm = { email: "", name: "", username: "", role: "werknemer", password: "" };
 
 export default function Users() {
   const [users, setUsers] = useState([]);
@@ -65,14 +65,14 @@ export default function Users() {
   };
   const openEdit = (u) => {
     setEditing(u);
-    setForm({ email: u.email, name: u.name, role: u.role, password: "" });
+    setForm({ email: u.email, name: u.name, username: u.username || "", role: u.role, password: "" });
     setOpen(true);
   };
 
   const save = async () => {
     try {
       if (editing) {
-        const upd = { name: form.name, role: form.role };
+        const upd = { name: form.name, role: form.role, username: form.username };
         if (form.password) upd.password = form.password;
         await api.put(`/users/${editing.id}`, upd);
         toast.success("Gebruiker bijgewerkt");
@@ -139,6 +139,7 @@ export default function Users() {
           <thead className="bg-slate-900 text-slate-400">
             <tr>
               <th className="text-left p-3 font-medium">Naam</th>
+              <th className="text-left p-3 font-medium">Gebruikersnaam</th>
               <th className="text-left p-3 font-medium">E-mail</th>
               <th className="text-left p-3 font-medium">Rol</th>
               <th className="text-right p-3 font-medium">Acties</th>
@@ -148,6 +149,7 @@ export default function Users() {
             {users.map((u) => (
               <tr key={u.id} className="border-t border-slate-800" data-testid={`user-row-${u.email}`}>
                 <td className="p-3 font-medium">{u.name || "—"}</td>
+                <td className="p-3 text-slate-400 font-mono text-xs">{u.username || <span className="text-slate-600">—</span>}</td>
                 <td className="p-3 text-slate-300">{u.email}</td>
                 <td className="p-3">{roleBadge(u.role)}</td>
                 <td className="p-3 text-right">
@@ -188,6 +190,16 @@ export default function Users() {
                 onChange={(e) => setForm({ ...form, name: e.target.value })}
                 className="bg-slate-950 border-slate-800"
                 data-testid="user-name-input"
+              />
+            </div>
+            <div>
+              <Label>Gebruikersnaam (optioneel — login met e-mail of gebruikersnaam)</Label>
+              <Input
+                value={form.username}
+                onChange={(e) => setForm({ ...form, username: e.target.value })}
+                placeholder="bv. jan"
+                className="bg-slate-950 border-slate-800 font-mono"
+                data-testid="user-username-input"
               />
             </div>
             <div>

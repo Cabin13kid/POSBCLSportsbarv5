@@ -18,7 +18,8 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Plus, Pencil, Trash2, Package, Layers } from "lucide-react";
+import { Plus, Pencil, Trash2, Package, Layers, Bell, BellOff } from "lucide-react";
+import { Switch } from "@/components/ui/switch";
 
 const emptyForm = {
   name: "",
@@ -26,6 +27,8 @@ const emptyForm = {
   loose_units: 0,
   trays_in_storage: 0,
   units_per_tray: 0,
+  alarm_enabled: true,
+  alarm_threshold: 6,
 };
 
 export default function Inventory() {
@@ -57,6 +60,8 @@ export default function Inventory() {
       loose_units: it.loose_units,
       trays_in_storage: it.trays_in_storage,
       units_per_tray: it.units_per_tray,
+      alarm_enabled: it.alarm_enabled ?? true,
+      alarm_threshold: it.alarm_threshold ?? 6,
     });
     setOpen(true);
   };
@@ -69,11 +74,30 @@ export default function Inventory() {
         loose_units: Number(form.loose_units),
         trays_in_storage: Number(form.trays_in_storage),
         units_per_tray: Number(form.units_per_tray),
+        alarm_enabled: !!form.alarm_enabled,
+        alarm_threshold: Number(form.alarm_threshold) || 0,
       };
       if (editing) await api.put(`/inventory/${editing.id}`, payload);
       else await api.post("/inventory", payload);
       toast.success(editing ? "Voorraad bijgewerkt" : "Voorraad item toegevoegd");
       setOpen(false);
+      load();
+    } catch (e) {
+      toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
+    }
+  };
+
+  const toggleAlarm = async (it) => {
+    try {
+      await api.put(`/inventory/${it.id}`, {
+        name: it.name,
+        category: it.category,
+        loose_units: it.loose_units,
+        trays_in_storage: it.trays_in_storage,
+        units_per_tray: it.units_per_tray,
+        alarm_enabled: !it.alarm_enabled,
+        alarm_threshold: it.alarm_threshold ?? 6,
+      });
       load();
     } catch (e) {
       toast.error(formatApiErrorDetail(e.response?.data?.detail) || e.message);
@@ -154,20 +178,23 @@ export default function Inventory() {
               <th className="text-right p-3 font-medium">Trays</th>
               <th className="text-right p-3 font-medium">Units/tray</th>
               <th className="text-right p-3 font-medium">Totaal</th>
+              <th className="text-right p-3 font-medium">Alarm</th>
               <th className="text-right p-3 font-medium">Acties</th>
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 && (
               <tr>
-                <td colSpan={7} className="p-6 text-center text-slate-500">
+                <td colSpan={8} className="p-6 text-center text-slate-500">
                   Geen voorraad items
                 </td>
               </tr>
             )}
             {filtered.map((it) => {
               const total = it.loose_units + it.trays_in_storage * it.units_per_tray;
-              const isLow = total < 6;
+              const threshold = it.alarm_threshold ?? 6;
+              const alarmOn = it.alarm_enabled ?? true;
+              const triggered = alarmOn && total < threshold;
               return (
                 <tr
                   key={it.id}
@@ -183,10 +210,27 @@ export default function Inventory() {
                   </td>
                   <td
                     className={`p-3 text-right font-mono tabular font-semibold ${
-                      isLow ? "text-rose-400" : "text-emerald-400"
+                      triggered ? "text-rose-400" : "text-emerald-400"
                     }`}
                   >
                     {total}
+                  </td>
+                  <td className="p-3 text-right">
+                    <button
+                      onClick={() => toggleAlarm(it)}
+                      data-testid={`alarm-toggle-${it.name}`}
+                      title={alarmOn ? `Alarm aan (< ${threshold})` : "Alarm uit"}
+                      className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-full border text-xs font-medium transition-colors ${
+                        alarmOn
+                          ? triggered
+                            ? "bg-rose-500/15 text-rose-400 border-rose-500/40"
+                            : "bg-emerald-500/10 text-emerald-400 border-emerald-500/30 hover:bg-emerald-500/20"
+                          : "bg-slate-800 text-slate-500 border-slate-700 hover:bg-slate-700"
+                      }`}
+                    >
+                      {alarmOn ? <Bell className="h-3 w-3" /> : <BellOff className="h-3 w-3" />}
+                      <span className="font-mono tabular">&lt;{threshold}</span>
+                    </button>
                   </td>
                   <td className="p-3 text-right">
                     <button onClick={() => openEdit(it)} className="p-1.5 text-slate-400 hover:text-amber-400">
@@ -261,6 +305,42 @@ export default function Inventory() {
             <p className="text-xs text-slate-500 leading-relaxed">
               Trays worden los van losse units bijgehouden. Bij bestellen wordt eerst van losse units afgehaald; als deze op zijn wordt automatisch een tray omgezet.
             </p>
+
+            <div className="rounded-lg border border-slate-800 bg-slate-950 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <div>
+                  <div className="text-sm font-medium flex items-center gap-1.5">
+                    {form.alarm_enabled ? (
+                      <Bell className="h-3.5 w-3.5 text-amber-400" />
+                    ) : (
+                      <BellOff className="h-3.5 w-3.5 text-slate-500" />
+                    )}
+                    Voorraad alarm
+                  </div>
+                  <div className="text-xs text-slate-500">
+                    Verschijnt op Dashboard onder "Voorraad alarm"
+                  </div>
+                </div>
+                <Switch
+                  checked={!!form.alarm_enabled}
+                  onCheckedChange={(v) => setForm({ ...form, alarm_enabled: v })}
+                  data-testid="alarm-enabled-switch"
+                />
+              </div>
+              {form.alarm_enabled && (
+                <div>
+                  <Label className="text-xs text-slate-400">Alarmdrempel (totaal &lt;)</Label>
+                  <Input
+                    type="number"
+                    min="0"
+                    value={form.alarm_threshold}
+                    onChange={(e) => setForm({ ...form, alarm_threshold: e.target.value })}
+                    className="mt-1 bg-slate-900 border-slate-800 font-mono"
+                    data-testid="alarm-threshold-input"
+                  />
+                </div>
+              )}
+            </div>
           </div>
           <DialogFooter>
             <Button
