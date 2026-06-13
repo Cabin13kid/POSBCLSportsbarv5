@@ -287,7 +287,7 @@ export default function Orders() {
                 <div className="rounded-lg border border-slate-800 overflow-hidden">
                   {detail.items.map((it, i) => (
                     <div
-                      key={i}
+                      key={`${it.menu_item_id}-${it.price}-${i}`}
                       className="flex items-center justify-between px-3 py-2 border-b border-slate-800/60 last:border-b-0"
                     >
                       <span className="text-sm">
