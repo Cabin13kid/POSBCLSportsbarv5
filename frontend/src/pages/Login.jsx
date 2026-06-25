@@ -13,8 +13,8 @@ const LOGIN_BG =
 export default function Login() {
   const { login } = useAuth();
   const nav = useNavigate();
-  const [identifier, setIdentifier] = useState("admin@bar.nl");
-  const [password, setPassword] = useState("admin123");
+  const [identifier, setIdentifier] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
 

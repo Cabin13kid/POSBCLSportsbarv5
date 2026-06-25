@@ -12,6 +12,8 @@ import MenuManagement from "@/pages/MenuManagement";
 import Inventory from "@/pages/Inventory";
 import Users from "@/pages/Users";
 import Promotions from "@/pages/Promotions";
+import PromotionOrders from "@/pages/PromotionOrders";
+import WeeklySales from "@/pages/WeeklySales";
 
 const Protected = ({ children, roles }) => {
   const { user, loading } = useAuth();
@@ -80,6 +82,22 @@ function App() {
                 element={
                   <Protected roles={["admin", "manager"]}>
                     <Inventory />
+                  </Protected>
+                }
+              />
+              <Route
+                path="/promo-orders"
+                element={
+                  <Protected roles={["admin", "manager"]}>
+                    <PromotionOrders />
+                  </Protected>
+                }
+              />
+              <Route
+                path="/weekly-sales"
+                element={
+                  <Protected roles={["admin", "manager"]}>
+                    <WeeklySales />
                   </Protected>
                 }
               />

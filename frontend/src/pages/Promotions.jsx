@@ -29,6 +29,7 @@ const emptyForm = {
   active: true,
   starts_at: "",
   ends_at: "",
+  track_orders: false,
 };
 
 export default function Promotions() {
@@ -63,6 +64,7 @@ export default function Promotions() {
       active: p.active,
       starts_at: p.starts_at ? p.starts_at.slice(0, 16) : "",
       ends_at: p.ends_at ? p.ends_at.slice(0, 16) : "",
+      track_orders: !!p.track_orders,
     });
     setOpen(true);
   };
@@ -78,6 +80,7 @@ export default function Promotions() {
             ? form.menu_item_ids
             : [],
         active: form.active,
+        track_orders: !!form.track_orders,
         starts_at: form.starts_at ? new Date(form.starts_at).toISOString() : null,
         ends_at: form.ends_at ? new Date(form.ends_at).toISOString() : null,
       };
@@ -300,6 +303,20 @@ export default function Promotions() {
                 checked={form.active}
                 onCheckedChange={(v) => setForm({ ...form, active: v })}
                 data-testid="promo-active-switch"
+              />
+            </div>
+
+            <div className="flex items-center justify-between p-3 rounded-lg border border-slate-800 bg-slate-950">
+              <div>
+                <div className="text-sm font-medium">Bestellingen bijhouden</div>
+                <div className="text-xs text-slate-500">
+                  Toont alle bestellingen met deze promo in "Promo bestellingen"
+                </div>
+              </div>
+              <Switch
+                checked={!!form.track_orders}
+                onCheckedChange={(v) => setForm({ ...form, track_orders: v })}
+                data-testid="promo-track-switch"
               />
             </div>
           </div>

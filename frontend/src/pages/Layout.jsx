@@ -14,11 +14,15 @@ import {
   Shield,
   Menu as MenuIcon,
   X,
+  Receipt,
+  TrendingUp,
 } from "lucide-react";
 
 const NAV = [
   { to: "/", icon: LayoutGrid, label: "Dashboard", roles: ["admin", "manager", "werknemer"], end: true },
   { to: "/orders", icon: ClipboardList, label: "Bestellingen", roles: ["admin", "manager", "werknemer"] },
+  { to: "/promo-orders", icon: Receipt, label: "Promo bestellingen", roles: ["admin", "manager"] },
+  { to: "/weekly-sales", icon: TrendingUp, label: "Weekverkoop", roles: ["admin", "manager"] },
   { to: "/floorplan", icon: Map, label: "Plattegrond", roles: ["admin", "manager"] },
   { to: "/menu", icon: BookOpen, label: "Menu", roles: ["admin", "manager"] },
   { to: "/inventory", icon: Package, label: "Voorraad", roles: ["admin", "manager"] },

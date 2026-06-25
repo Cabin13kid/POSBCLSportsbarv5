@@ -160,12 +160,13 @@ class UserUpdateIn(BaseModel):
 
 class PromotionIn(BaseModel):
     name: str
-    type: str  # "order_percent" | "item_fixed"
+    type: str  # "order_percent" | "item_fixed" | "item_percent"
     value: float
     menu_item_ids: List[str] = []
     active: bool = True
     starts_at: Optional[str] = None  # ISO8601
     ends_at: Optional[str] = None
+    track_orders: bool = False  # show in "Promo bestellingen" overzicht
 
 
 class PromotionOut(PromotionIn):
@@ -264,8 +265,12 @@ SEED_MENU = [
 
 
 async def seed_admin():
-    email = os.environ["ADMIN_EMAIL"]
+    email = os.environ["ADMIN_EMAIL"].strip().lower()
     pw = os.environ["ADMIN_PASSWORD"]
+    # Remove legacy seed admin if a different email is now configured
+    legacy = "admin@bar.nl"
+    if email != legacy:
+        await db.users.delete_one({"email": legacy})
     existing = await db.users.find_one({"email": email})
     if not existing:
         await db.users.insert_one({
@@ -842,6 +847,7 @@ def promo_doc_to_out(d: dict) -> dict:
         "active": d.get("active", True),
         "starts_at": d.get("starts_at"),
         "ends_at": d.get("ends_at"),
+        "track_orders": d.get("track_orders", False),
     }
 
 
@@ -959,6 +965,67 @@ async def create_shift_note(payload: ShiftNoteIn, user=Depends(get_current_user)
 async def delete_shift_note(note_id: str, _=Depends(get_current_user)):
     await db.shift_notes.delete_one({"_id": note_id})
     return {"ok": True}
+
+
+# ---- Promo-orders overview (manager+) ----
+@api.get("/stats/promotion-orders")
+async def stats_promotion_orders(_=Depends(require_manager)):
+    """List promotions waarop track_orders=true is gezet, met de orders die ze gebruikten."""
+    promos = await db.promotions.find({"track_orders": True}).to_list(500)
+    out = []
+    for p in promos:
+        cursor = db.orders.find({"promotion_ids": p["_id"]}).sort("created_at", -1)
+        orders = [order_doc_to_out(o) async for o in cursor]
+        revenue = round(sum(o["total"] for o in orders), 2)
+        discount = round(sum(o.get("discount", 0) for o in orders), 2)
+        out.append({
+            "promotion": promo_doc_to_out(p),
+            "orders": orders,
+            "order_count": len(orders),
+            "revenue": revenue,
+            "discount_total": discount,
+        })
+    return out
+
+
+# ---- Weekly product sales (manager+) ----
+@api.get("/stats/weekly-sales")
+async def stats_weekly_sales(days: int = 7, _=Depends(require_manager)):
+    """Verkochte hoeveelheden per menu-item over de afgelopen N dagen (default 7)."""
+    cutoff = (now_utc() - timedelta(days=days)).isoformat()
+    agg = {}  # menu_item_id -> {name, category, qty, revenue}
+    cursor = db.orders.find({"created_at": {"$gte": cutoff}})
+    async for o in cursor:
+        for it in o.get("items", []):
+            key = it["menu_item_id"]
+            if key not in agg:
+                agg[key] = {
+                    "menu_item_id": key,
+                    "name": it["name"],
+                    "qty": 0,
+                    "revenue": 0.0,
+                }
+            agg[key]["qty"] += it.get("qty", 0)
+            agg[key]["revenue"] += (it.get("price", 0) * it.get("qty", 0))
+    # Decorate with category from menu_items
+    rows = list(agg.values())
+    if rows:
+        ids = [r["menu_item_id"] for r in rows]
+        menu_docs = await db.menu_items.find({"_id": {"$in": ids}}).to_list(1000)
+        cat_map = {m["_id"]: m.get("category", "—") for m in menu_docs}
+        for r in rows:
+            r["category"] = cat_map.get(r["menu_item_id"], "—")
+            r["revenue"] = round(r["revenue"], 2)
+    rows.sort(key=lambda r: r["qty"], reverse=True)
+    total_qty = sum(r["qty"] for r in rows)
+    total_revenue = round(sum(r["revenue"] for r in rows), 2)
+    return {
+        "days": days,
+        "since": cutoff,
+        "total_qty": total_qty,
+        "total_revenue": total_revenue,
+        "rows": rows,
+    }
 
 
 # ---- Reset (admin only) ----
