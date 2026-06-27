@@ -771,7 +771,7 @@ def user_doc_to_out(d: dict) -> dict:
 
 
 @api.get("/users")
-async def list_users(_=Depends(require_admin)):
+async def list_users(_=Depends(require_manager)):
     users = await db.users.find().to_list(1000)
     return [user_doc_to_out(u) for u in users]
 
