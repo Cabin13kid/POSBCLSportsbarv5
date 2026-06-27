@@ -858,7 +858,7 @@ async def list_promotions(_=Depends(get_current_user)):
 
 
 @api.post("/promotions", response_model=PromotionOut)
-async def create_promotion(payload: PromotionIn, _=Depends(require_admin)):
+async def create_promotion(payload: PromotionIn, _=Depends(require_manager)):
     if payload.type not in ("order_percent", "item_fixed", "item_percent"):
         raise HTTPException(status_code=400, detail="Ongeldig type")
     item_id = str(uuid.uuid4())
@@ -868,7 +868,7 @@ async def create_promotion(payload: PromotionIn, _=Depends(require_admin)):
 
 
 @api.put("/promotions/{promo_id}", response_model=PromotionOut)
-async def update_promotion(promo_id: str, payload: PromotionIn, _=Depends(require_admin)):
+async def update_promotion(promo_id: str, payload: PromotionIn, _=Depends(require_manager)):
     if payload.type not in ("order_percent", "item_fixed", "item_percent"):
         raise HTTPException(status_code=400, detail="Ongeldig type")
     res = await db.promotions.find_one_and_update(
@@ -882,7 +882,7 @@ async def update_promotion(promo_id: str, payload: PromotionIn, _=Depends(requir
 
 
 @api.delete("/promotions/{promo_id}")
-async def delete_promotion(promo_id: str, _=Depends(require_admin)):
+async def delete_promotion(promo_id: str, _=Depends(require_manager)):
     await db.promotions.delete_one({"_id": promo_id})
     return {"ok": True}
 
