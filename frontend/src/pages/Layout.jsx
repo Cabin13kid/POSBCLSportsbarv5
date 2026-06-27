@@ -23,10 +23,10 @@ const NAV = [
   { to: "/orders", icon: ClipboardList, label: "Bestellingen", roles: ["admin", "manager", "werknemer"] },
   { to: "/promo-orders", icon: Receipt, label: "Promo bestellingen", roles: ["admin", "manager"] },
   { to: "/weekly-sales", icon: TrendingUp, label: "Weekverkoop", roles: ["admin", "manager"] },
-  { to: "/floorplan", icon: Map, label: "Plattegrond", roles: ["admin", "manager"] },
+  { to: "/floorplan", icon: Map, label: "Plattegrond", roles: ["admin", "manager", "werknemer"] },
   { to: "/menu", icon: BookOpen, label: "Menu", roles: ["admin", "manager"] },
   { to: "/inventory", icon: Package, label: "Voorraad", roles: ["admin", "manager"] },
-  { to: "/promotions", icon: Tag, label: "Promoties", roles: ["admin"] },
+  { to: "/promotions", icon: Tag, label: "Promoties", roles: ["admin", "manager"] },
   { to: "/users", icon: UsersIcon, label: "Gebruikers", roles: ["admin"] },
 ];
 
