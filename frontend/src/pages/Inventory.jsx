@@ -135,11 +135,25 @@ export default function Inventory() {
             Losse units, trays en voorraadkoppeling
           </p>
         </div>
-        <Button
-          onClick={openCreate}
-          className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
-          data-testid="add-inv-btn"
-        >
+        <div className="flex gap-2">
+  <Button
+    onClick={exportInventory}
+    variant="outline"
+    className="border-slate-700"
+  >
+    <Download className="h-4 w-4 mr-2" />
+    Export Excel
+  </Button>
+
+  <Button
+    onClick={openCreate}
+    className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
+    data-testid="add-inv-btn"
+  >
+    <Plus className="h-4 w-4 mr-1.5" />
+    Voorraad item
+  </Button>
+</div>
           <Plus className="h-4 w-4 mr-1.5" /> Voorraad item
         </Button>
       </div>
@@ -165,6 +179,37 @@ export default function Inventory() {
           >
             {c}
           </button>
+          const exportInventory = async () => {
+  try {
+    const response = await api.get(
+      "/inventory/export",
+      {
+        responseType: "blob",
+      }
+    );
+
+    const url = window.URL.createObjectURL(
+      new Blob([response.data])
+    );
+
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "voorraad.xlsx";
+
+    document.body.appendChild(link);
+
+    link.click();
+
+    link.remove();
+
+    window.URL.revokeObjectURL(url);
+
+    toast.success("Excel export gestart");
+  } catch (e) {
+    toast.error("Export mislukt");
+  }
+};
+
         ))}
       </div>
 
@@ -388,3 +433,5 @@ const SummaryCard = ({ label, value, icon: Icon, accent }) => (
     </div>
   </div>
 );
+
+import { Download } from "lucide-react";
