@@ -18,6 +18,9 @@ from fastapi.middleware.cors import CORSMiddleware
 from motor.motor_asyncio import AsyncIOMotorClient
 from pydantic import BaseModel, Field, EmailStr
 
+import tempfile
+import pandas as pd
+from fastapi.responses import FileResponse
 
 # ---- Setup ----
 mongo_url = os.environ["MONGO_URL"]
@@ -499,7 +502,44 @@ async def delete_inventory(item_id: str, _=Depends(require_manager)):
     await db.inventory_items.delete_one({"_id": item_id})
     return {"ok": True}
 
+@api.get("/inventory/export")
+async def export_inventory(_=Depends(require_manager)):
+    items = await db.inventory_items.find().to_list(1000)
 
+    rows = []
+
+    for item in items:
+        total_available = (
+            item.get("loose_units", 0)
+            + item.get("trays_in_storage", 0)
+            * item.get("units_per_tray", 0)
+        )
+
+        rows.append({
+            "Naam": item.get("name"),
+            "Categorie": item.get("category"),
+            "Losse units": item.get("loose_units", 0),
+            "Trays": item.get("trays_in_storage", 0),
+            "Units per tray": item.get("units_per_tray", 0),
+            "Totaal beschikbaar": total_available,
+            "Alarm actief": item.get("alarm_enabled", True),
+            "Alarm drempel": item.get("alarm_threshold", 6),
+        })
+
+    df = pd.DataFrame(rows)
+
+    tmp = tempfile.NamedTemporaryFile(
+        suffix=".xlsx",
+        delete=False
+    )
+
+    df.to_excel(tmp.name, index=False)
+
+    return FileResponse(
+        path=tmp.name,
+        filename="voorraad.xlsx",
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    )
 # ---- Tables / Floorplan ----
 def table_doc_to_out(d: dict) -> dict:
     return {
