@@ -20,6 +20,17 @@ import {
 } from "@/components/ui/select";
 import { Plus, Pencil, Trash2, Package, Layers, Bell, BellOff } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { Download } from "lucide-react";
+import {
+  Plus,
+  Pencil,
+  Trash2,
+  Package,
+  Layers,
+  Bell,
+  BellOff,
+  Download
+} from "lucide-react";
 
 const emptyForm = {
   name: "",
@@ -150,9 +161,7 @@ export default function Inventory() {
     className="bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold"
     data-testid="add-inv-btn"
   >
-    <Plus className="h-4 w-4 mr-1.5" />
-    Voorraad item
-  </Button>
+
 </div>
           <Plus className="h-4 w-4 mr-1.5" /> Voorraad item
         </Button>
